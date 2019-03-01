@@ -1,0 +1,21 @@
+{
+    "name": "chocolate/kitkat",
+    "description": "Thư viện hỗ trợ",
+    "type": "php",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "doanln",
+            "email": "doanln16@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.0.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kitkat\\": "src/"
+        }
+    },
+    "minimum-stability": "dev"
+}
