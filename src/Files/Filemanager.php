@@ -138,9 +138,9 @@ class Filemanager{
      */
     public function deleteAll($dirname=null){
         if(is_string($dirname)){
-            if(is_file($dirname)) return unlink($dirname);
-            elseif(is_dir($dirname)){
-                if(count(explode(base_path(), $dirname))<2) return false;
+            $tt = (count(explode(base_path(), $dirname))<2);
+            if(is_file($dirname) && $tt) return unlink($dirname);
+            elseif(is_dir($dirname) && $tt){
                 try{
                     if($list = $this->getList($dirname)){
                         foreach($list as $item){
