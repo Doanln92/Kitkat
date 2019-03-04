@@ -22,18 +22,33 @@ trait FileMethods{
      * 
      * @return object $instance
      */
-    public function file($filename)
+    public function setFile($filename)
     {
         $this->_filename = $filename;
         $this->_filetype = null;
         $this->_filedata = null;
         
         if(file_exists($path = $this->getPath($filename))){
-            $this->_filetype = $this->getType($this->_filetype);
-            if($info = $this->getMimeType($this->getType($filename))){
+            $this->_filetype = $this->getType($filename);
+            if($info = $this->getMimeType($this->_filetype)){
                 $this->_extension = $info->extension;
             }
         }
+        return $this;
+    }
+
+    /**
+     * chõn file để đọc hoặc ghi
+     * 
+     * @param string $filename
+     * 
+     * @return object $instance
+     */
+    public function file($filename)
+    {
+        $f = clone $this;
+        $f->setFile($filename);
+        return $f;
     }
 
 
@@ -119,9 +134,16 @@ trait FileMethods{
 
     public function save($filename = null, $content = null)
     {
+        // chuẩn hóa tên file và lấy dường dẫn
         $f = $this->parseFilename($filename);
+
+        // lấy nội dung
         $c = is_null($content)?$this->_content:$content;
-        file_get_contents($f, $c);
+
+        // lưu nội dung filw
+        file_put_contents($f, $c);
+
+        // nếu lưu thành ông
         if(file_exists($f)){
             if($info = $this->getMimeType($f)){
                 $data = [
@@ -138,6 +160,7 @@ trait FileMethods{
                     'extension' => $this->_extension
                 ];
             }
+            // trả về đối tượng any
             return (new Any($data));
         }
         return false;
@@ -153,11 +176,12 @@ trait FileMethods{
         $filepath = $this->getPath($name);
         $pp = explode('/', $filepath);
         $fn = array_pop($pp);
-        $this->setDir(implode('/', $pp), true);
+        $dir = implode('/', $pp);
+        $stt = $this->setDir($dir, true);
         if($this->_filetype){
             if($info = $this->getMimeType($this->_filetype)){
                 $ext = $info->extension;
-                if(!preg_match('/\.'.$ext.'$/i')){
+                if(!preg_match('/\.'.$ext.'$/i', $fn)){
                     $fn .= '.'.$ext;
                 }
             }
@@ -183,7 +207,7 @@ trait FileMethods{
      * 
      * @return boolean
      */
-    public function delete($filename = null)
+    public function deleteFile($filename = null)
     {
         if(file_exists($f = $this->getPath($filename))){
             return unlink($f);
