@@ -2,7 +2,9 @@
 
 namespace Kitkat\Files;
 
-use Kitkat\Helpers\Any;
+use Kitkat\Helpers\Arr;
+
+use Exception;
 
 trait FileMethods{
     
@@ -60,11 +62,12 @@ trait FileMethods{
      */
     public function getType($filename = null)
     {
+        // return $this->getPath($filename);
         return file_exists($path = $this->getPath($filename))?mime_content_type($path):null;
     }
 
     /**
-     * thiết lập định dangg5 file
+     * thiết lập định dạng file
      * @param string $type
      */
     public function setType($type)
@@ -88,13 +91,16 @@ trait FileMethods{
     /**
      * lấy nội dung file
      * @param string $filename
+     * @param boolean $mime_type
      * 
      * @return string
      */
-    public function getContent($filename = null)
+    public function getContent($filename = null, $mime_type = null)
     {
-        if(file_exists($path = $this->getPath($filename))){
-            return file_get_contents($path);
+        $f = $this->parseFilenameByType($filename, $mime_type);
+
+        if(file_exists($f)){
+            return file_get_contents($f);
         }
         return null;
     }
@@ -128,24 +134,26 @@ trait FileMethods{
      * lưu file
      * @param string $filename
      * @param mixed $content
-     * 
+     * @param string $mime_type là định dạng hoặc loại tập tin
      * @return boolean
      */
 
-    public function save($filename = null, $content = null)
+    public function save($filename = null, $content = null, $mime_type = null)
     {
-        // chuẩn hóa tên file và lấy dường dẫn
-        $f = $this->parseFilename($filename);
-
+        $f = $this->parseFilenameByType($filename, $mime_type);
         // lấy nội dung
         $c = is_null($content)?$this->_content:$content;
 
         // lưu nội dung filw
+        // fopen($f, 'w');
+        // fwrite($f, $c);
+        // fclose($f);
         file_put_contents($f, $c);
-
+        $return_value = false;
         // nếu lưu thành ông
         if(file_exists($f)){
-            if($info = $this->getMimeType($f)){
+            $ext = pathinfo($f, PATHINFO_EXTENSION);
+            if($info = $this->getMimeType($ext)){
                 $data = [
                     'filename' => $this->_filename,
                     'path' => $f,
@@ -161,9 +169,9 @@ trait FileMethods{
                 ];
             }
             // trả về đối tượng any
-            return (new Any($data));
+            $return_value = new Arr($data);
         }
-        return false;
+        return $return_value;
     }
 
     /**
@@ -177,6 +185,9 @@ trait FileMethods{
         $pp = explode('/', $filepath);
         $fn = array_pop($pp);
         $dir = implode('/', $pp);
+
+        
+        
         $stt = $this->setDir($dir, true);
         if($this->_filetype){
             if($info = $this->getMimeType($this->_filetype)){
@@ -198,7 +209,30 @@ trait FileMethods{
             }
         }
         $this->_filename = $fn;
-        return $this->getPath($fn);
+        $path = $this->getPath($fn);
+        return $path;
+    }
+
+    /**
+     * chuẩn hóa tên file theo định dạng
+     * 
+     * @param string $filename
+     * @param string $mime_type
+     * 
+     * @return string path of file
+     */
+    public function parseFilenameByType($filename = null, $mime_type = null)
+    {
+        $current_dir = $this->_dir;
+        $old_type = $this->_filetype;
+        if($mime_type && $info = $this->getMimeType($mime_type)){
+            $this->_filetype = $info->type;
+        }
+        // chuẩn hóa tên file và lấy dường dẫn
+        $f = $this->parseFilename($filename);
+        $this->_filetype = $old_type;
+        $this->_dir = $current_dir;
+        return $f;
     }
 
     /**
@@ -214,5 +248,124 @@ trait FileMethods{
         }
         return false;
     }
+
+    /**
+     * lấy nội dung file json và chuyển về mảng
+     * @param string $filename
+     * @param boolean $convert_to_array_object
+     * 
+     * @return array|Arr
+     * 
+     */
+    public function getJson($filename = null, $convert_to_array_object = false)
+    {
+        $path = $this->parseFilenameByType($filename, 'json');
+        
+        $data = [];
+        if(file_exists($path)){
+            
+            try {
+                $content = file_get_contents($path);
+                $json = json_decode($content);
+                $data = Arr::parse($json);
+                if($convert_to_array_object){
+                    $data = new Arr($data);
+                }
+            } catch (Exception $e) {
+                //throw $th;
+            }
+        }
+        return $data;
+    }
+
+    /**
+     * lưu file json
+     * @param string $filename
+     * @param array $data 
+     * @return boolean
+     */
+    public function saveJson($filename = null, $data = null)
+    {
+        if(is_array($data) || is_object($data)){
+            return $this->save($filename, json_encode($data), 'json');
+        }
+        return false;
+    }
+
+    /**
+     * hàm lấy hoặc lưu dữ liệu json
+     * @param string $filename
+     * @param mixed $data
+     */
+    public function json($filename = null, $data = null)
+    {
+        if(is_array($filename) || is_object($filename)){
+            return $this->saveJson(null, $filename);
+        }elseif(is_array($data) || is_object($data)){
+            return $this->saveJson($filename, $data);
+        }elseif (is_bool($filename)) {
+            return $this->getJson(null,$filename);
+        }else {
+            return $this->getJson($filename, is_bool($data)?$data:false);
+        }
+    }
+
+
+    /**
+     * lấy nội dung dc mã hóa
+     * @param string $filename
+     * 
+     * @return mixed
+     */
+    public function getSerialize($filename = null)
+    {
+        $path = $this->parseFilenameByType($filename, 'ser');
+        $data = null;
+        if(file_exists($path)){
+            try {
+                $content = file_get_contents($path);
+                $data = unserialize($content);
+            } catch (Exception $e) {
+                //throw $th;
+            }
+        }
+        return $data;
+    }
+    public function getSer($filename = null)
+    {
+        return $this->getSerialize($filename);
+    }
+
+    /**
+     * lưu file serialize
+     * @param string $filename
+     * @param array $data 
+     * @return boolean
+     */
+    public function saveSerialize($filename = null, $data = null)
+    {
+        return $this->save($filename, serialize($data), 'ser');
+    }
+    public function saveSer($filename = null, $data = null)
+    {
+        return $this->saveSerialize($filename, $data);
+    }
+
+    /**
+     * hàm lấy hoặc lưu dữ liệu json
+     * @param string $filename
+     * @param mixed $data
+     */
+    public function serialize($filename = null, $data = null)
+    {
+        if(is_null($data)) return $this->getSerialize($filename);
+        return $this->saveSerialize($filename, $data);
+    }
+
+    public function ser($filename = null, $data = null)
+    {
+        return $this->serialize($filename, $data);
+    }
+
 
 }
